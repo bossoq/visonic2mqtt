@@ -1,0 +1,20 @@
+[package]
+name = "visonic2mqtt"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "visonic2mqtt_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+chrono = { version = "0.4.40", features = ["serde"] }
+log = "0.4.26"
+log4rs = "1.3.0"
+rand = "0.9.0"
+reqwest = { version = "0.12.12", features = ["json", "rustls-tls"] }
+rumqttc = "0.24.0"
+serde = { version = "1.0.218", features = ["derive"] }
+serde_json = "1.0.139"
+tokio = { version = "1.43.0", features = ["full"] }
+uuid = { version = "1.15.1", features = ["v4"] }
