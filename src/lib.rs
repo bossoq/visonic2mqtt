@@ -155,6 +155,7 @@ async fn handle_event(event: rumqttc::Event) {
                                     error!("Failed to arm away: {}", e);
                                 }
                             }
+                            drop(alarm_system_lock);
                             update_alarm_system().await;
                             *MQTT_PUBLISH.lock().await = true;
                         }
@@ -176,6 +177,7 @@ async fn handle_event(event: rumqttc::Event) {
                                     error!("Failed to arm home: {}", e);
                                 }
                             }
+                            drop(alarm_system_lock);
                             update_alarm_system().await;
                             *MQTT_PUBLISH.lock().await = true;
                         }
@@ -197,6 +199,7 @@ async fn handle_event(event: rumqttc::Event) {
                                     error!("Failed to disarm: {}", e);
                                 }
                             }
+                            drop(alarm_system_lock);
                             update_alarm_system().await;
                             *MQTT_PUBLISH.lock().await = true;
                         }
@@ -216,23 +219,26 @@ async fn handle_event(event: rumqttc::Event) {
 
 async fn update_alarm_system() {
     info!("Updating alarm system");
-    let mut alarm_system = ALARM_SYSTEM.lock().await;
-    let alarm_system = alarm_system.as_mut().unwrap();
+    let mut alarm_system_lock = ALARM_SYSTEM.lock().await;
+    let alarm_system = alarm_system_lock.as_mut().unwrap();
     alarm_system.update_status().await;
     alarm_system.update_devices().await;
     *MQTT_PUBLISH.lock().await = true;
+    drop(alarm_system_lock);
 }
 
 async fn publish_alarm_status() {
     let alarm_status_lock = ALARM_SYSTEM_STATUS.lock().await;
-    let model = alarm_status_lock.model().to_lowercase();
-    let serial = alarm_status_lock.serial_number().to_lowercase();
+    let alarm_status_clone = alarm_status_lock.clone();
+    drop(alarm_status_lock);
+    let model = alarm_status_clone.model().to_lowercase();
+    let serial = alarm_status_clone.serial_number().to_lowercase();
     let topic_prefix = format!("{}/{}_{}", &*MQTT_CONFIG.topic_prefix, model, serial);
     let mutex_client = MQTT_CLIENT.lock().await;
     let client = mutex_client.as_ref();
     if client.is_some() {
         let client = client.unwrap();
-        match publish_state(&client, &alarm_status_lock, &topic_prefix).await {
+        match publish_state(&client, &alarm_status_clone, &topic_prefix).await {
             Ok(_) => {
                 info!("State published");
             }
@@ -242,7 +248,6 @@ async fn publish_alarm_status() {
         };
     } else {
         let (mut client, mut eventloop) = mqtt_setup().await.unwrap();
-        let alarm_status_clone = alarm_status_lock.clone();
         tokio::spawn(async move {
             match publish_state(&mut client, &alarm_status_clone, &topic_prefix).await {
                 Ok(_) => {
@@ -273,6 +278,5 @@ async fn publish_alarm_status() {
             }
         });
     }
-    drop(alarm_status_lock);
     drop(mutex_client);
 }
