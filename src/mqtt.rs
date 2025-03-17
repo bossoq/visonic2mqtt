@@ -181,7 +181,7 @@ pub async fn publish_discovery(
                 "unique_id": format!("{}_{}", name, d.id()),
                 "device_class": "door",
                 "state_topic": format!("{}/state", topic_prefix),
-                "value_template": format!("{{{{ value_json.{} if (value_json is defined and value_json.{} is defined) else 'OFF' }}}}", d.id().to_lowercase(), d.id().to_lowercase()),
+                "value_template": format!("{{{{ value_json['{}'] if (value_json is defined and value_json['{}'] is defined) else 'OFF' }}}}", d.id().to_lowercase(), d.id().to_lowercase()),
                 "json_attributes_topic": attributes_topic.clone(),
                 "json_attributes_template": "{{ value }}",
                 "device": device,
