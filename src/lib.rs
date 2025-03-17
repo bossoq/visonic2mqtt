@@ -223,8 +223,11 @@ async fn update_alarm_system() {
     let alarm_system = alarm_system_lock.as_mut().unwrap();
     alarm_system.update_status().await;
     alarm_system.update_devices().await;
+    let mut alarm_status_lock = ALARM_SYSTEM_STATUS.lock().await;
+    *alarm_status_lock = alarm_system.get_status();
     *MQTT_PUBLISH.lock().await = true;
     drop(alarm_system_lock);
+    drop(alarm_status_lock);
 }
 
 async fn publish_alarm_status() {
