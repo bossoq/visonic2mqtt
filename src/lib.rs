@@ -128,7 +128,13 @@ async fn handle_event(event: rumqttc::Event) {
     let serial = alarm_status_lock.serial_number().to_lowercase();
     let topic_prefix = format!("{}/{}_{}", &*MQTT_CONFIG.topic_prefix, model, serial);
     drop(alarm_status_lock);
-    let payload = parse_payload(event).await.unwrap();
+    let payload = match parse_payload(event).await {
+        Ok(p) => p,
+        Err(e) => {
+            error!("Failed to parse payload: {}", e);
+            return;
+        }
+    };
     if payload.is_null() {
         return;
     }

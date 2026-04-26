@@ -267,12 +267,19 @@ impl System {
     #[allow(dead_code)]
     pub async fn disarm(&mut self) -> Result<bool, String> {
         if !self.is_token_valid().await {
-            self.connect().await;
+            if !self.connect().await {
+                return Err("Failed to reconnect to alarm system".to_string());
+            }
         }
         match self.api.set_state(&ArmState::DISARM).await {
             Ok(res) => {
                 let process_token = res["process_token"].as_str().unwrap();
+                let mut attempts = 0;
                 loop {
+                    if attempts >= 30 {
+                        return Err("Timeout waiting for disarm to complete".to_string());
+                    }
+                    attempts += 1;
                     match self.api.process_status(process_token).await {
                         Ok(res) => match serde_json::from_value::<Vec<ProcessStatus>>(res) {
                             Ok(res) => {
@@ -288,6 +295,7 @@ impl System {
                         },
                         Err(e) => return Err(e),
                     }
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 }
             }
             Err(e) => Err(e),
@@ -296,12 +304,19 @@ impl System {
     #[allow(dead_code)]
     pub async fn arm_home(&mut self) -> Result<bool, String> {
         if !self.is_token_valid().await {
-            self.connect().await;
+            if !self.connect().await {
+                return Err("Failed to reconnect to alarm system".to_string());
+            }
         }
         match self.api.set_state(&ArmState::HOME).await {
             Ok(res) => {
                 let process_token = res["process_token"].as_str().unwrap();
+                let mut attempts = 0;
                 loop {
+                    if attempts >= 30 {
+                        return Err("Timeout waiting for arm home to complete".to_string());
+                    }
+                    attempts += 1;
                     match self.api.process_status(process_token).await {
                         Ok(res) => match serde_json::from_value::<Vec<ProcessStatus>>(res) {
                             Ok(res) => {
@@ -317,6 +332,7 @@ impl System {
                         },
                         Err(e) => return Err(e),
                     }
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 }
             }
             Err(e) => Err(e),
@@ -325,12 +341,19 @@ impl System {
     #[allow(dead_code)]
     pub async fn arm_away(&mut self) -> Result<bool, String> {
         if !self.is_token_valid().await {
-            self.connect().await;
+            if !self.connect().await {
+                return Err("Failed to reconnect to alarm system".to_string());
+            }
         }
         match self.api.set_state(&ArmState::AWAY).await {
             Ok(res) => {
                 let process_token = res["process_token"].as_str().unwrap();
+                let mut attempts = 0;
                 loop {
+                    if attempts >= 30 {
+                        return Err("Timeout waiting for arm away to complete".to_string());
+                    }
+                    attempts += 1;
                     match self.api.process_status(process_token).await {
                         Ok(res) => match serde_json::from_value::<Vec<ProcessStatus>>(res) {
                             Ok(res) => {
@@ -346,6 +369,7 @@ impl System {
                         },
                         Err(e) => return Err(e),
                     }
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 }
             }
             Err(e) => Err(e),
@@ -369,18 +393,24 @@ impl System {
                 return false;
             }
         };
-        if rest_versions.contains(&"8.0".to_string()) {
-            debug!("Setting rest version to 8.0");
-            self.api.set_version_urls("8.0");
-        } else if rest_versions.contains(&"9.0".to_string()) {
-            debug!("Setting rest version to 9.0");
-            self.api.set_version_urls("9.0");
-        } else if rest_versions.contains(&"10.0".to_string()) {
-            debug!("Setting rest version to 10.0");
-            self.api.set_version_urls("10.0");
+        if rest_versions.contains(&"14.0".to_string()) {
+            debug!("Setting rest version to 14.0");
+            self.api.set_version_urls("14.0");
+        } else if rest_versions.contains(&"13.0".to_string()) {
+            debug!("Setting rest version to 13.0");
+            self.api.set_version_urls("13.0");
         } else if rest_versions.contains(&"12.0".to_string()) {
             debug!("Setting rest version to 12.0");
             self.api.set_version_urls("12.0");
+        } else if rest_versions.contains(&"10.0".to_string()) {
+            debug!("Setting rest version to 10.0");
+            self.api.set_version_urls("10.0");
+        } else if rest_versions.contains(&"9.0".to_string()) {
+            debug!("Setting rest version to 9.0");
+            self.api.set_version_urls("9.0");
+        } else if rest_versions.contains(&"8.0".to_string()) {
+            debug!("Setting rest version to 8.0");
+            self.api.set_version_urls("8.0");
         } else {
             error!("No supported rest version found");
             return false;

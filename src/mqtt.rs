@@ -19,7 +19,7 @@ pub struct MQTTConfiguration {
     pub topic_prefix: String,
 }
 
-const MQTT_CONFIG_FILE: &str = "data/mqtt.json";
+const MQTT_CONFIG_FILE: &str = "/opt/visonic2mqtt/mqtt.json";
 pub static MQTT_CONFIG: LazyLock<MQTTConfiguration> = LazyLock::new(|| {
     let mqtt_broker = var("MQTT_BROKER");
     let mqtt_port = var("MQTT_PORT");
