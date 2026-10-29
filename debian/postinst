@@ -1,0 +1,34 @@
+#!/bin/bash
+set -e
+
+case "$1" in
+    configure|abort-upgrade)
+        mkdir -p /opt/visonic2mqtt/logs
+        chmod 750 /opt/visonic2mqtt
+        chmod 750 /opt/visonic2mqtt/logs
+
+        if [ ! -f /opt/visonic2mqtt/visonic2mqtt.env ]; then
+            cat > /opt/visonic2mqtt/visonic2mqtt.env <<'ENV'
+# visonic2mqtt configuration. Restart the service after editing:
+#   systemctl restart visonic2mqtt
+BASE_URL=visonic.tycomonitor.com
+EMAIL=
+PASSWORD=
+USERCODE=
+PANEL_ID=
+MQTT_BROKER=localhost
+MQTT_PORT=1883
+MQTT_USER=
+MQTT_PASSWORD=
+#MQTT_DISCOVERY_TOPIC=homeassistant
+#MQTT_TOPIC_PREFIX=visonic2mqtt
+REFRESH_INTERVAL=15
+ENV
+            chmod 600 /opt/visonic2mqtt/visonic2mqtt.env
+        fi
+
+        systemctl daemon-reload || true
+        systemctl enable visonic2mqtt.service || true
+        systemctl start visonic2mqtt.service || true
+        ;;
+esac
