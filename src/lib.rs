@@ -48,7 +48,7 @@ pub async fn run() {
     });
     let mutex_client = MQTT_CLIENT.lock().await;
     let client = mutex_client.as_ref().unwrap();
-    match publish_discovery(&client, &alarm_status_clone, &topic_prefix).await {
+    match publish_discovery(client, &alarm_status_clone, &topic_prefix).await {
         Ok(_) => {
             info!("Discovery published");
         }
@@ -244,10 +244,8 @@ async fn publish_alarm_status() {
     let serial = alarm_status_clone.serial_number().to_lowercase();
     let topic_prefix = format!("{}/{}_{}", &*MQTT_CONFIG.topic_prefix, model, serial);
     let mutex_client = MQTT_CLIENT.lock().await;
-    let client = mutex_client.as_ref();
-    if client.is_some() {
-        let client = client.unwrap();
-        match publish_state(&client, &alarm_status_clone, &topic_prefix).await {
+    if let Some(client) = mutex_client.as_ref() {
+        match publish_state(client, &alarm_status_clone, &topic_prefix).await {
             Ok(_) => {
                 info!("State published");
             }
@@ -256,9 +254,9 @@ async fn publish_alarm_status() {
             }
         };
     } else {
-        let (mut client, mut eventloop) = mqtt_setup().await.unwrap();
+        let (client, mut eventloop) = mqtt_setup().await.unwrap();
         tokio::spawn(async move {
-            match publish_state(&mut client, &alarm_status_clone, &topic_prefix).await {
+            match publish_state(&client, &alarm_status_clone, &topic_prefix).await {
                 Ok(_) => {
                     info!("State published");
                 }

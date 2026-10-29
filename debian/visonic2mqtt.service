@@ -1,0 +1,16 @@
+[Unit]
+Description=Visonic PowerManage to MQTT bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/opt/visonic2mqtt/visonic2mqtt.env
+ExecStart=/usr/bin/visonic2mqtt
+Restart=always
+RestartSec=5s
+StartLimitBurst=5
+StartLimitIntervalSec=10min
+
+[Install]
+WantedBy=multi-user.target

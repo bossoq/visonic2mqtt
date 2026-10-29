@@ -65,17 +65,11 @@ impl Device {
             || self.subtype.contains("KEYFOB")
         {
             match &self.warnings {
-                Some(warning) => {
-                    if warning.iter().any(|w| w._type == "OPENED") {
-                        return "ON".to_string();
-                    } else {
-                        return "OFF".to_string();
-                    }
-                }
-                None => return "OFF".to_string(),
+                Some(warning) if warning.iter().any(|w| w._type == "OPENED") => "ON".to_string(),
+                _ => "OFF".to_string(),
             }
         } else {
-            return "UNKNOWN".to_string();
+            "UNKNOWN".to_string()
         }
     }
 }
@@ -94,7 +88,7 @@ mod my_date_format {
     use chrono::{DateTime, NaiveDateTime, Utc};
     use serde::{self, Deserialize, Deserializer, Serializer};
 
-    const FORMAT: &'static str = "%Y-%m-%d %H:%M:%S";
+    const FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 
     // The signature of a serialize_with function must follow the pattern:
     //
@@ -215,7 +209,7 @@ impl SystemStatus {
     }
 }
 pub struct System {
-    api: API,
+    api: Api,
     serial: Option<String>,
     model: Option<String>,
     ready: bool,
@@ -235,7 +229,7 @@ impl System {
         panel_id: &str,
     ) -> Self {
         System {
-            api: API::new(hostname, user_email, user_password, user_code, panel_id),
+            api: Api::new(hostname, user_email, user_password, user_code, panel_id),
             serial: None,
             model: None,
             ready: false,
@@ -266,12 +260,10 @@ impl System {
     }
     #[allow(dead_code)]
     pub async fn disarm(&mut self) -> Result<bool, String> {
-        if !self.is_token_valid().await {
-            if !self.connect().await {
-                return Err("Failed to reconnect to alarm system".to_string());
-            }
+        if !self.is_token_valid().await && !self.connect().await {
+            return Err("Failed to reconnect to alarm system".to_string());
         }
-        match self.api.set_state(&ArmState::DISARM).await {
+        match self.api.set_state(&ArmState::Disarm).await {
             Ok(res) => {
                 let process_token = res["process_token"].as_str().unwrap();
                 let mut attempts = 0;
@@ -283,7 +275,7 @@ impl System {
                     match self.api.process_status(process_token).await {
                         Ok(res) => match serde_json::from_value::<Vec<ProcessStatus>>(res) {
                             Ok(res) => {
-                                if res.len() > 0 {
+                                if !res.is_empty() {
                                     match res[0].status.as_str() {
                                         "succeeded" => return Ok(true),
                                         "failed" => return Ok(false),
@@ -303,12 +295,10 @@ impl System {
     }
     #[allow(dead_code)]
     pub async fn arm_home(&mut self) -> Result<bool, String> {
-        if !self.is_token_valid().await {
-            if !self.connect().await {
-                return Err("Failed to reconnect to alarm system".to_string());
-            }
+        if !self.is_token_valid().await && !self.connect().await {
+            return Err("Failed to reconnect to alarm system".to_string());
         }
-        match self.api.set_state(&ArmState::HOME).await {
+        match self.api.set_state(&ArmState::Home).await {
             Ok(res) => {
                 let process_token = res["process_token"].as_str().unwrap();
                 let mut attempts = 0;
@@ -320,7 +310,7 @@ impl System {
                     match self.api.process_status(process_token).await {
                         Ok(res) => match serde_json::from_value::<Vec<ProcessStatus>>(res) {
                             Ok(res) => {
-                                if res.len() > 0 {
+                                if !res.is_empty() {
                                     match res[0].status.as_str() {
                                         "succeeded" => return Ok(true),
                                         "failed" => return Ok(false),
@@ -340,12 +330,10 @@ impl System {
     }
     #[allow(dead_code)]
     pub async fn arm_away(&mut self) -> Result<bool, String> {
-        if !self.is_token_valid().await {
-            if !self.connect().await {
-                return Err("Failed to reconnect to alarm system".to_string());
-            }
+        if !self.is_token_valid().await && !self.connect().await {
+            return Err("Failed to reconnect to alarm system".to_string());
         }
-        match self.api.set_state(&ArmState::AWAY).await {
+        match self.api.set_state(&ArmState::Away).await {
             Ok(res) => {
                 let process_token = res["process_token"].as_str().unwrap();
                 let mut attempts = 0;
@@ -357,7 +345,7 @@ impl System {
                     match self.api.process_status(process_token).await {
                         Ok(res) => match serde_json::from_value::<Vec<ProcessStatus>>(res) {
                             Ok(res) => {
-                                if res.len() > 0 {
+                                if !res.is_empty() {
                                     match res[0].status.as_str() {
                                         "succeeded" => return Ok(true),
                                         "failed" => return Ok(false),
@@ -438,7 +426,7 @@ impl System {
                 return false;
             }
         }
-        return true;
+        true
     }
     #[allow(dead_code)]
     pub async fn get_last_event(&mut self) {
@@ -491,8 +479,7 @@ impl System {
                                     .unwrap_or_default()
                                     .as_array()
                                     .unwrap_or(&vec![])
-                                    .len()
-                                    == 0
+                                    .is_empty()
                             {
                                 if first_partition.status == "EXIT"
                                     && (first_partition.state == "AWAY"
@@ -557,12 +544,13 @@ impl System {
     }
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "UPPERCASE")]
 pub enum ArmState {
-    HOME,
-    AWAY,
-    DISARM,
+    Home,
+    Away,
+    Disarm,
 }
-struct API {
+struct Api {
     app_type: String,
     user_agent: String,
     rest_version: String,
@@ -590,7 +578,7 @@ struct API {
     session_token: Option<String>,
     client: Client,
 }
-impl API {
+impl Api {
     fn new(
         hostname: &str,
         user_email: &str,
@@ -598,7 +586,7 @@ impl API {
         user_code: &str,
         panel_id: &str,
     ) -> Self {
-        let mut api = API {
+        let mut api = Api {
             app_type: "com.visonic.PowerMaxApp".to_string(),
             user_agent: "Visonic%20GO/2.8.62.91 CFNetwork/901.1 Darwin/17.6.0".to_string(),
             rest_version: "8.0".to_string(),
@@ -629,7 +617,7 @@ impl API {
         api.url_version = format!("https://{}/rest_api/version", api.hostname)
             .parse()
             .ok();
-        return api;
+        api
     }
     async fn send_get_request(
         &self,
@@ -665,17 +653,17 @@ impl API {
                 match res.json::<Value>().await {
                     Ok(res) => {
                         debug!("Response: {}", res);
-                        return Ok(res);
+                        Ok(res)
                     }
                     Err(e) => {
                         error!("Failed to parse response: {}", e);
-                        return Err("Failed to parse response".to_string());
+                        Err("Failed to parse response".to_string())
                     }
                 }
             }
             Err(e) => {
                 error!("Failed to send request: {}", e);
-                return Err("Failed to send request".to_string());
+                Err("Failed to send request".to_string())
             }
         }
     }
@@ -722,17 +710,17 @@ impl API {
                 match res.json::<Value>().await {
                     Ok(res) => {
                         debug!("Response: {}", res);
-                        return Ok(res);
+                        Ok(res)
                     }
                     Err(e) => {
                         error!("Failed to parse response: {}", e);
-                        return Err("Failed to parse response".to_string());
+                        Err("Failed to parse response".to_string())
                     }
                 }
             }
             Err(e) => {
                 error!("Failed to send request: {}", e);
-                return Err("Failed to send request".to_string());
+                Err("Failed to send request".to_string())
             }
         }
     }
@@ -896,9 +884,9 @@ impl API {
     #[allow(dead_code)]
     pub async fn set_state(&self, state: &ArmState) -> Result<Value, String> {
         let state = match state {
-            ArmState::HOME => "home".to_uppercase(),
-            ArmState::AWAY => "away".to_uppercase(),
-            ArmState::DISARM => "disarm".to_uppercase(),
+            ArmState::Home => "home".to_uppercase(),
+            ArmState::Away => "away".to_uppercase(),
+            ArmState::Disarm => "disarm".to_uppercase(),
         };
         let data_json = json!({
             "partition": self.partition,

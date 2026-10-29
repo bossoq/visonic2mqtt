@@ -27,10 +27,10 @@ pub static MQTT_CONFIG: LazyLock<MQTTConfiguration> = LazyLock::new(|| {
     let mqtt_password = var("MQTT_PASSWORD");
     let mqtt_discovery_topic = var("MQTT_DISCOVERY_TOPIC");
     let mqtt_topic_prefix = var("MQTT_TOPIC_PREFIX");
-    if mqtt_broker.is_ok() && mqtt_port.is_ok() {
+    if let (Ok(mqtt_broker), Ok(mqtt_port)) = (mqtt_broker, mqtt_port) {
         let mqtt_config = MQTTConfiguration {
-            broker: mqtt_broker.unwrap(),
-            port: mqtt_port.unwrap().parse().unwrap_or(1883),
+            broker: mqtt_broker,
+            port: mqtt_port.parse().unwrap_or(1883),
             user: mqtt_user.unwrap_or("".to_string()),
             password: mqtt_password.unwrap_or("".to_string()),
             discovery_topic: mqtt_discovery_topic.unwrap_or("homeassistant".to_string()),
@@ -95,19 +95,16 @@ pub async fn setup() -> Result<(AsyncClient, EventLoop), Box<dyn std::error::Err
 
 pub async fn parse_payload(event: Event) -> Result<Value, Box<dyn std::error::Error>> {
     match event {
-        Event::Incoming(incoming) => match incoming {
-            rumqttc::Packet::Publish(publish) => {
-                debug!("Received message on topic: {}", publish.topic);
-                debug!("Payload: {:?}", publish.payload);
-                let payload = String::from_utf8_lossy(&publish.payload);
-                let value: Value = json!({
-                    "topic": publish.topic,
-                    "payload": payload,
-                });
-                Ok(value)
-            }
-            _ => Ok(Value::Null),
-        },
+        Event::Incoming(rumqttc::Packet::Publish(publish)) => {
+            debug!("Received message on topic: {}", publish.topic);
+            debug!("Payload: {:?}", publish.payload);
+            let payload = String::from_utf8_lossy(&publish.payload);
+            let value: Value = json!({
+                "topic": publish.topic,
+                "payload": payload,
+            });
+            Ok(value)
+        }
         _ => Ok(Value::Null),
     }
 }
@@ -149,7 +146,7 @@ pub async fn publish_discovery(
     payload_map.insert(
         format!(
             "{}/alarm_control_panel/{}_{}/config",
-            &*MQTT_CONFIG.discovery_topic, &name, "panel"
+            &*MQTT_CONFIG.discovery_topic, name, "panel"
         ),
         json!({
             "availability": availability,
@@ -173,7 +170,7 @@ pub async fn publish_discovery(
         payload_map.insert(
             format!(
                 "{}/binary_sensor/{}_{}/config",
-                &*MQTT_CONFIG.discovery_topic, &name, d.id().to_lowercase()
+                &*MQTT_CONFIG.discovery_topic, name, d.id().to_lowercase()
             ),
             json!({
                 "availability": availability,
@@ -225,12 +222,9 @@ pub async fn publish_state(
     );
     let mut changed_by = "".to_string();
     let mut changed_time = DateTime::<Utc>::MIN_UTC;
-    match alarm_status.last_event() {
-        Some(event) => {
-            changed_by = event.user.to_string();
-            changed_time = event.timestamp;
-        }
-        None => {}
+    if let Some(event) = alarm_status.last_event() {
+        changed_by = event.user.to_string();
+        changed_time = event.timestamp;
     }
     payload_map.insert(
         attributes_topic.clone(),
