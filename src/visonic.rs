@@ -393,7 +393,10 @@ impl System {
                 return false;
             }
         };
-        if rest_versions.contains(&"14.0".to_string()) {
+        if rest_versions.contains(&"15.0".to_string()) {
+            debug!("Setting rest version to 15.0");
+            self.api.set_version_urls("15.0");
+        } else if rest_versions.contains(&"14.0".to_string()) {
             debug!("Setting rest version to 14.0");
             self.api.set_version_urls("14.0");
         } else if rest_versions.contains(&"13.0".to_string()) {
@@ -402,6 +405,9 @@ impl System {
         } else if rest_versions.contains(&"12.0".to_string()) {
             debug!("Setting rest version to 12.0");
             self.api.set_version_urls("12.0");
+        } else if rest_versions.contains(&"11.0".to_string()) {
+            debug!("Setting rest version to 11.0");
+            self.api.set_version_urls("11.0");
         } else if rest_versions.contains(&"10.0".to_string()) {
             debug!("Setting rest version to 10.0");
             self.api.set_version_urls("10.0");
