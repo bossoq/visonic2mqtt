@@ -60,8 +60,11 @@ impl Device {
     }
     #[allow(dead_code)]
     pub fn state(&self) -> String {
-        if self.subtype.contains("CONTACT")
-            || self.subtype == "HW_ZONE_CONNECTED_DIRECTLY_TO_THE_PANEL"
+        // REST API 15.0 reports wired zones as subtype "HW_ZONE" (older versions:
+        // "HW_ZONE_CONNECTED_DIRECTLY_TO_THE_PANEL"), so match on device_type too.
+        if self.device_type == "ZONE"
+            || self.subtype.contains("CONTACT")
+            || self.subtype.starts_with("HW_ZONE")
             || self.subtype.contains("KEYFOB")
         {
             match &self.warnings {
